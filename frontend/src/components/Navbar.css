@@ -1,0 +1,62 @@
+.navbar-wrapper {
+  position: fixed;
+  top: 32px;
+  left: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  z-index: 1000;
+  pointer-events: none; /* Let clicks pass through the wrapper */
+}
+
+.navbar-container {
+  pointer-events: auto; /* Re-enable clicks on the actual navbar */
+  display: flex;
+  align-items: center;
+  background-color: #d8d0ba; /* Beige matching the image */
+  padding: 6px 12px;
+  border-radius: 9999px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08), inset 0 -2px 4px rgba(0,0,0,0.02);
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.navbar-link {
+  text-decoration: none;
+  color: #4a4a4a; /* Dark gray text */
+  font-weight: 500;
+  font-size: 13px;
+  padding: 8px 16px;
+  border-radius: 9999px;
+  transition: all 0.2s ease;
+  letter-spacing: 0.5px;
+}
+
+.navbar-link:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+  color: #2c2c2c;
+}
+
+.navbar-link-active {
+  color: #d16b54 !important; /* The precise orange/rust from the image */
+  font-weight: 600;
+}
+
+.navbar-settings {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4a4a4a;
+  padding: 8px;
+  margin-left: 4px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: transparent;
+  border: none;
+}
+
+.navbar-settings:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+  color: #2c2c2c;
+}
