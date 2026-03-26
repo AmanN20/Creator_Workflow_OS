@@ -12,8 +12,8 @@ export default function InteractiveGrid() {
     // Config
     const spacing = 40; // Grid spacing
     const dotRadius = 1.5;
-    const repelRadius = 150;
-    const repelForce = 0.8;
+    const repelRadius = 80;
+    const repelForce = 0.6;
     const returnSpeed = 0.1;
     const friction = 0.75;
     
