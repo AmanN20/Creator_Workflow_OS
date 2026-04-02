@@ -11,15 +11,22 @@ public class IdeaDTO {
 
     private String description;
     private String tags;
+    private String type;
+    private String inputData;
+    private String outputData;
     private LocalDateTime createdAt;
 
     public IdeaDTO() {}
 
-    public IdeaDTO(Long id, String title, String description, String tags, LocalDateTime createdAt) {
+    public IdeaDTO(Long id, String title, String description, String tags,
+                   String type, String inputData, String outputData, LocalDateTime createdAt) {
         this.id = id;
         this.title = title;
         this.description = description;
         this.tags = tags;
+        this.type = type;
+        this.inputData = inputData;
+        this.outputData = outputData;
         this.createdAt = createdAt;
     }
 
@@ -31,6 +38,12 @@ public class IdeaDTO {
     public void setDescription(String description) { this.description = description; }
     public String getTags() { return tags; }
     public void setTags(String tags) { this.tags = tags; }
+    public String getType() { return type; }
+    public void setType(String type) { this.type = type; }
+    public String getInputData() { return inputData; }
+    public void setInputData(String inputData) { this.inputData = inputData; }
+    public String getOutputData() { return outputData; }
+    public void setOutputData(String outputData) { this.outputData = outputData; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

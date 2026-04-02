@@ -88,6 +88,46 @@ class ApiService {
     return this.request('DELETE', `/ideas/${id}`);
   }
 
+  // NEW: Upload CSV for AI idea generation
+  async uploadCsvIdea(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const token = this.getToken();
+    const headers = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    // Do NOT set Content-Type — browser will set multipart boundary automatically
+
+    try {
+      const response = await fetch(`${this.baseUrl}/ideas/upload-csv`, {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+
+      if (response.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+        throw new Error('Session expired');
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Upload failed: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      if (error.message === 'Failed to fetch') {
+        throw new Error('Cannot connect to backend. Is your Spring Boot app running on port 8080?');
+      }
+      throw error;
+    }
+  }
+
   // Scripts
   async generateScript(data) {
     return this.request('POST', '/script/generate', data);
