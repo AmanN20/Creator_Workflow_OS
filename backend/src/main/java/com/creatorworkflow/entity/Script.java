@@ -19,6 +19,9 @@ public class Script {
     @Column(columnDefinition = "LONGTEXT")
     private String content;
 
+    @Column(name = "canvas_data", columnDefinition = "LONGTEXT")
+    private String canvasData;
+
     @Column(name = "script_type", length = 50)
     private String scriptType;
 
@@ -38,6 +41,8 @@ public class Script {
     public void setIdeaId(Long ideaId) { this.ideaId = ideaId; }
     public String getContent() { return content; }
     public void setContent(String content) { this.content = content; }
+    public String getCanvasData() { return canvasData; }
+    public void setCanvasData(String canvasData) { this.canvasData = canvasData; }
     public String getScriptType() { return scriptType; }
     public void setScriptType(String scriptType) { this.scriptType = scriptType; }
     public LocalDateTime getCreatedAt() { return createdAt; }

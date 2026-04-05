@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
-import { Lightbulb, Edit2, Trash2, Upload, PenTool, Sparkles, X, FileText, TrendingUp, Target, Rocket, ChevronDown, ChevronUp, Eye } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Lightbulb, Edit2, Trash2, Upload, PenTool, Sparkles, X, FileText, TrendingUp, Target, Rocket, ChevronDown, ChevronUp, Eye, BookmarkPlus, PenLine } from 'lucide-react';
 import api from '../services/api';
 import './IdeasPage.css';
 
 const TAG_OPTIONS = ['YouTube', 'Instagram', 'Reels', 'Blog', 'Twitter', 'LinkedIn', 'TikTok', 'Podcast'];
 
 export default function IdeasPage() {
+  const navigate = useNavigate();
   const [ideas, setIdeas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -202,16 +204,50 @@ export default function IdeasPage() {
     return formData.tags?.split(',').map(t => t.trim()).includes(tag);
   };
 
-  // Parse AI output safely
+  const handleBookmarkAiIdea = async (title, description, whyOrContext) => {
+    try {
+      const newIdea = {
+        title: title,
+        description: description + (whyOrContext ? '\n\nContext/Reason: ' + whyOrContext : ''),
+        tags: 'AI-Generated'
+      };
+      await api.createIdea(newIdea);
+      alert('Idea bookmarked successfully!');
+      loadIdeas(); // Refresh background ideas list
+    } catch (err) {
+      alert('Failed to bookmark idea: ' + err.message);
+    }
+  };
+
+  // Parse AI output safely with a resilient fallback
   const parseAiOutput = (outputData) => {
     if (!outputData) return null;
+    if (typeof outputData !== 'string') return outputData;
+    
     try {
-      if (typeof outputData === 'string') {
-        return JSON.parse(outputData);
+      return JSON.parse(outputData);
+    } catch (err) {
+      try {
+        let cleaned = outputData
+          .replace(/,\s*([\]}])/g, '$1') 
+          .replace(/\n(?! *[{}"\[\]])/g, '\\n')
+          .replace(/[\u0000-\u001F]+/g, ' '); 
+        return JSON.parse(cleaned);
+      } catch (err2) {
+        try {
+          // eslint-disable-next-line no-new-func
+          return new Function('return ' + outputData)();
+        } catch (err3) {
+          // Gemini sometimes truncates the final closing brackets ]}
+          let baseText = outputData.trim();
+          const fixAttempts = [']}', '}', ']}', '] }', '} ] }', '}\n  ]\n}'];
+          for (let fix of fixAttempts) {
+            try { return new Function('return ' + baseText + fix)(); } catch(e) {}
+            try { return JSON.parse(baseText + fix); } catch(e) {}
+          }
+          return null;
+        }
       }
-      return outputData;
-    } catch {
-      return null;
     }
   };
 
@@ -315,15 +351,25 @@ export default function IdeasPage() {
               {idea.description && (
                 <p className="idea-description">{idea.description}</p>
               )}
-              <div className="idea-footer">
-                <div className="idea-tags">
-                  {idea.tags?.split(',').map((tag, i) => (
-                    tag.trim() && <span key={i} className="tag tag-outline">{tag.trim()}</span>
-                  ))}
+              <div className="idea-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div className="idea-tags">
+                    {idea.tags?.split(',').map((tag, i) => (
+                      tag.trim() && <span key={i} className="tag tag-outline">{tag.trim()}</span>
+                    ))}
+                  </div>
+                  <span className="idea-date">
+                    {new Date(idea.createdAt).toLocaleDateString()}
+                  </span>
                 </div>
-                <span className="idea-date">
-                  {new Date(idea.createdAt).toLocaleDateString()}
-                </span>
+                {idea.type !== 'ai_csv' && (
+                  <button 
+                    className="btn btn-primary btn-sm" 
+                    onClick={() => navigate('/scripts', { state: { selectedIdeaId: idea.id } })}
+                  >
+                    <PenLine size={14} style={{ marginRight: '4px' }} /> Write Script
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -575,7 +621,10 @@ export default function IdeasPage() {
                 if (!output) {
                   return (
                     <div className="alert alert-error">
-                      Could not parse AI results. The raw data has been saved to your idea.
+                      <p><b>Could not parse AI results.</b> The AI returned invalid JSON format. Here is the raw data:</p>
+                      <div style={{ marginTop: '10px', padding: '10px', backgroundColor: 'rgba(0,0,0,0.1)', borderRadius: '4px', overflowX: 'auto', maxHeight: '400px', whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '12px' }}>
+                        {aiResult.outputData}
+                      </div>
                     </div>
                   );
                 }
@@ -595,8 +644,11 @@ export default function IdeasPage() {
                         {expandedSections.video_ideas && (
                           <div className="ai-section-content">
                             {output.video_ideas.map((idea, i) => (
-                              <div key={i} className="ai-card">
-                                <h4 className="ai-card-title">{i + 1}. {idea.title}</h4>
+                              <div key={i} className="ai-card" style={{ position: 'relative' }}>
+                                <button className="btn btn-ghost btn-sm" style={{ position: 'absolute', top: 12, right: 12, color: 'var(--color-primary)' }} onClick={() => handleBookmarkAiIdea(idea.title, idea.description, idea.why)} title="Bookmark this Idea">
+                                  <BookmarkPlus size={18} />
+                                </button>
+                                <h4 className="ai-card-title" style={{ paddingRight: 40 }}>{i + 1}. {idea.title}</h4>
                                 {idea.description && <p className="ai-card-text">{idea.description}</p>}
                                 {idea.why && <p className="ai-card-reason"><Target size={14} /> {idea.why}</p>}
                               </div>

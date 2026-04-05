@@ -4,6 +4,7 @@ import com.creatorworkflow.dto.ScriptDTO;
 import com.creatorworkflow.dto.ScriptRequest;
 import com.creatorworkflow.entity.Script;
 import com.creatorworkflow.exception.ResourceNotFoundException;
+import com.creatorworkflow.repository.ContentPostRepository;
 import com.creatorworkflow.repository.IdeaRepository;
 import com.creatorworkflow.repository.ScriptRepository;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,16 +21,19 @@ public class ScriptService {
 
     private final ScriptRepository scriptRepository;
     private final IdeaRepository ideaRepository;
+    private final ContentPostRepository contentPostRepository;
     private final WebClient webClient;
     private final String aiModel;
 
     public ScriptService(ScriptRepository scriptRepository,
                          IdeaRepository ideaRepository,
+                         ContentPostRepository contentPostRepository,
                          @Value("${app.ai.api-url}") String apiUrl,
                          @Value("${app.ai.api-key}") String apiKey,
                          @Value("${app.ai.model}") String aiModel) {
         this.scriptRepository = scriptRepository;
         this.ideaRepository = ideaRepository;
+        this.contentPostRepository = contentPostRepository;
         this.aiModel = aiModel;
         this.webClient = WebClient.builder()
                 .baseUrl(apiUrl)
@@ -58,6 +62,7 @@ public class ScriptService {
         script.setScriptType("GENERATED");
 
         Script saved = scriptRepository.save(script);
+        advanceContentPostStatus(saved.getIdeaId());
         return toDTO(saved);
     }
 
@@ -83,6 +88,7 @@ public class ScriptService {
         script.setScriptType("IMPROVED");
 
         Script saved = scriptRepository.save(script);
+        advanceContentPostStatus(saved.getIdeaId());
         return toDTO(saved);
     }
 
@@ -102,12 +108,46 @@ public class ScriptService {
         script.setScriptType("HOOKS");
 
         Script saved = scriptRepository.save(script);
+        advanceContentPostStatus(saved.getIdeaId());
+        return toDTO(saved);
+    }
+
+    public ScriptDTO saveManualScript(ScriptRequest request) {
+        ideaRepository.findById(request.getIdeaId())
+                .orElseThrow(() -> new ResourceNotFoundException("Idea not found"));
+
+        Script script = new Script();
+        script.setIdeaId(request.getIdeaId());
+        script.setContent(request.getExistingScript() != null ? request.getExistingScript() : "");
+        script.setCanvasData(request.getCanvasData());  // persist canvas images
+        script.setScriptType("MANUAL");
+
+        Script saved = scriptRepository.save(script);
+        advanceContentPostStatus(saved.getIdeaId());
+        return toDTO(saved);
+    }
+
+    public ScriptDTO updateScriptCanvas(Long scriptId, String canvasData) {
+        Script script = scriptRepository.findById(scriptId)
+                .orElseThrow(() -> new ResourceNotFoundException("Script not found"));
+        script.setCanvasData(canvasData);
+        Script saved = scriptRepository.save(script);
         return toDTO(saved);
     }
 
     public List<ScriptDTO> getScriptsByIdea(Long ideaId) {
         return scriptRepository.findByIdeaIdOrderByCreatedAtDesc(ideaId)
                 .stream().map(this::toDTO).collect(Collectors.toList());
+    }
+
+    private void advanceContentPostStatus(Long ideaId) {
+        List<com.creatorworkflow.entity.ContentPost> posts = contentPostRepository.findByIdeaId(ideaId);
+        for (com.creatorworkflow.entity.ContentPost post : posts) {
+            if ("IDEA".equals(post.getStatus())) {
+                post.setStatus("SCRIPT");
+                contentPostRepository.save(post);
+            }
+        }
     }
 
     private String callAI(String systemPrompt, String userPrompt) {
@@ -167,6 +207,6 @@ public class ScriptService {
 
     private ScriptDTO toDTO(Script script) {
         return new ScriptDTO(script.getId(), script.getIdeaId(), script.getContent(),
-                script.getScriptType(), script.getCreatedAt());
+                script.getCanvasData(), script.getScriptType(), script.getCreatedAt());
     }
 }

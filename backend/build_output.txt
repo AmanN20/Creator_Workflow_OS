@@ -1,0 +1,81 @@
+﻿.\apache-maven-3.9.6\bin\m
+vn.cmd : WARNING: A 
+restricted method in 
+java.lang.System has been 
+called
+At line:1 char:1
++ .\apache-maven-3.9.6\bin
+\mvn.cmd compile 2>&1 | 
+Out-File -FilePath .\ ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo        
+      : NotSpecified: (W  
+  ARNING: A rest...has    
+ been called:String) [    
+], RemoteException
+    + FullyQualifiedError 
+   Id : NativeCommandErr  
+  or
+ 
+WARNING: 
+java.lang.System::load 
+has been called by org.fus
+esource.jansi.internal.Jan
+siLoader in an unnamed 
+module (file:/C:/Users/Len
+ovo/Desktop/CreatorPipelin
+e/backend/apache-maven-3.9
+.6/lib/jansi-2.4.0.jar)
+WARNING: Use --enable-nati
+ve-access=ALL-UNNAMED to 
+avoid a warning for 
+callers in this module
+WARNING: Restricted 
+methods will be blocked 
+in a future release 
+unless native access is 
+enabled
+
+WARNING: A terminally 
+deprecated method in 
+sun.misc.Unsafe has been 
+called
+WARNING: sun.misc.Unsafe::
+objectFieldOffset has 
+been called by com.google.
+common.util.concurrent.Abs
+tractFuture$UnsafeAtomicHe
+lper (file:/C:/Users/Lenov
+o/Desktop/CreatorPipeline/
+backend/apache-maven-3.9.6
+/lib/guava-32.0.1-jre.jar)
+WARNING: Please consider 
+reporting this to the 
+maintainers of class com.g
+oogle.common.util.concurre
+nt.AbstractFuture$UnsafeAt
+omicHelper
+WARNING: sun.misc.Unsafe::
+objectFieldOffset will be 
+removed in a future 
+release
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] --------------< com.creatorworkflow:creator-workflow-os >---------------
+[INFO] Building Creator Workflow OS 1.0.0
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ creator-workflow-os ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.11.0:compile (default-compile) @ creator-workflow-os ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  1.075 s
+[INFO] Finished at: 2026-04-05T23:02:24+05:30
+[INFO] ------------------------------------------------------------------------

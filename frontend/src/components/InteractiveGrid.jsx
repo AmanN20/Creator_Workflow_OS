@@ -8,25 +8,25 @@ export default function InteractiveGrid() {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     let animationFrameId;
-    
+
     // Config
-    const spacing = 40; // Grid spacing
-    const dotRadius = 1.5;
-    const repelRadius = 80;
-    const repelForce = 0.6;
-    const returnSpeed = 0.1;
-    const friction = 0.75;
-    
+    const spacing = 20; // Increased spacing for a cleaner look
+    const dotRadius = 2; // Slightly smaller dots
+    const repelRadius = 20; // Smaller interaction area
+    const repelForce = 0.3; // Much gentler movement
+    const returnSpeed = 0.1; // Faster snapping back
+    const friction = 0.5 // Less "wobble"
+
     let nodes = [];
     let mouse = { x: -1000, y: -1000, radius: repelRadius };
-    
+
     const init = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
       nodes = [];
       const cols = Math.floor(canvas.width / spacing) + 2;
       const rows = Math.floor(canvas.height / spacing) + 2;
-      
+
       for (let i = 0; i < cols; i++) {
         nodes[i] = [];
         for (let j = 0; j < rows; j++) {
@@ -47,9 +47,9 @@ export default function InteractiveGrid() {
       ctx.fillStyle = '#ECE7D1'; // Matching your --color-background
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // We'll use your brand's primary color with higher opacity for the grid
-      const lineColor = 'rgba(138, 118, 80, 0.25)';
-      const dotColor = 'rgba(138, 118, 80, 0.5)';
+      // We'll use your brand's primary color with MUCH lower opacity for a subtle look
+      const lineColor = 'rgba(138, 118, 80, 0.08)';
+      const dotColor = 'rgba(138, 118, 80, 0.15)';
 
       // Update positions
       for (let i = 0; i < nodes.length; i++) {
@@ -58,7 +58,7 @@ export default function InteractiveGrid() {
           const dx = mouse.x - dot.x;
           const dy = mouse.y - dot.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          
+
           if (dist < mouse.radius) {
             const force = (mouse.radius - dist) / mouse.radius;
             // repel
@@ -86,11 +86,11 @@ export default function InteractiveGrid() {
           const dot = nodes[i][j];
           if (i < nodes.length - 1) {
             ctx.moveTo(dot.x, dot.y);
-            ctx.lineTo(nodes[i+1][j].x, nodes[i+1][j].y);
+            ctx.lineTo(nodes[i + 1][j].x, nodes[i + 1][j].y);
           }
           if (j < nodes[i].length - 1) {
             ctx.moveTo(dot.x, dot.y);
-            ctx.lineTo(nodes[i][j+1].x, nodes[i][j+1].y);
+            ctx.lineTo(nodes[i][j + 1].x, nodes[i][j + 1].y);
           }
         }
       }
@@ -114,7 +114,7 @@ export default function InteractiveGrid() {
       mouse.x = e.clientX;
       mouse.y = e.clientY;
     };
-    
+
     const handleMouseLeave = () => {
       mouse.x = -1000;
       mouse.y = -1000;

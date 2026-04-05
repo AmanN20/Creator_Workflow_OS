@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS scripts (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     idea_id BIGINT NOT NULL,
     content LONGTEXT,
+    canvas_data LONGTEXT,
     script_type VARCHAR(50),
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 

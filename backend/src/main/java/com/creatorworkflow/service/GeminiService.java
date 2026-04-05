@@ -26,9 +26,9 @@ public class GeminiService {
 
     private static final int MAX_RETRIES = 3;
     private static final String[] FALLBACK_MODELS = {
+        "gemini-2.5-flash",
         "gemini-2.0-flash",
-        "gemini-2.0-flash-lite",
-        "gemini-1.5-pro"
+        "gemini-2.0-flash-lite"
     };
 
     public GeminiService(WebClient.Builder webClientBuilder, ObjectMapper objectMapper) {
@@ -79,8 +79,10 @@ public class GeminiService {
             }
         }
 
-        // All retries exhausted — return a structured fallback response
-        return generateFallbackResponse(csvSummary);
+        // All retries exhausted — throw the exception instead of returning dummy data
+        String errorMsg = lastException != null && lastException.getMessage() != null 
+            ? lastException.getMessage() : "Unknown API Error";
+        throw new BadRequestException("API Error: Rate Limit Exceeded or Quota Exhausted (" + errorMsg + "). Please wait a minute and try again.");
     }
 
     private String callGemini(String modelName, String prompt) {
@@ -92,7 +94,13 @@ public class GeminiService {
             ),
             "generationConfig", Map.of(
                 "temperature", 0.8,
-                "maxOutputTokens", 4096
+                "maxOutputTokens", 8192
+            ),
+            "safetySettings", List.of(
+                Map.of("category", "HARM_CATEGORY_HARASSMENT", "threshold", "BLOCK_NONE"),
+                Map.of("category", "HARM_CATEGORY_HATE_SPEECH", "threshold", "BLOCK_NONE"),
+                Map.of("category", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold", "BLOCK_NONE"),
+                Map.of("category", "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold", "BLOCK_NONE")
             )
         );
 
@@ -157,17 +165,24 @@ public class GeminiService {
             if (candidates.isArray() && !candidates.isEmpty()) {
                 JsonNode content = candidates.get(0).path("content").path("parts");
                 if (content.isArray() && !content.isEmpty()) {
-                    String text = content.get(0).path("text").asText();
-                    text = text.trim();
-                    if (text.startsWith("```json")) {
-                        text = text.substring(7);
-                    } else if (text.startsWith("```")) {
-                        text = text.substring(3);
+                    StringBuilder fullText = new StringBuilder();
+                    for (JsonNode part : content) {
+                        if (part.has("text")) {
+                            fullText.append(part.path("text").asText());
+                        }
                     }
-                    if (text.endsWith("```")) {
-                        text = text.substring(0, text.length() - 3);
+                    String text = fullText.toString().trim();
+                    
+                    // Robust JSON extraction
+                    int startIndex = text.indexOf('{');
+                    int endIndex = text.lastIndexOf('}');
+                    
+                    if (startIndex != -1 && endIndex != -1 && startIndex < endIndex) {
+                        return text.substring(startIndex, endIndex + 1);
                     }
-                    return text.trim();
+                    
+                    // Fallback to original text if no braces found
+                    return text;
                 }
             }
 
@@ -189,35 +204,4 @@ public class GeminiService {
         }
     }
 
-    /**
-     * Generates a structured fallback when all Gemini models are rate-limited.
-     */
-    private String generateFallbackResponse(String csvSummary) {
-        return """
-            {
-              "video_ideas": [
-                {"title": "Behind the Scenes of My Content Process", "description": "Show your audience how you create content from ideation to publishing", "why": "BTS content builds trust and typically gets 2x more engagement"},
-                {"title": "I Analyzed My YouTube Analytics — Here's What I Found", "description": "Share real data insights with your audience in a transparent format", "why": "Data-driven content positions you as an authority"},
-                {"title": "Top 5 Mistakes I Made as a Creator", "description": "Honest reflection on lessons learned from your channel journey", "why": "Vulnerability and honesty drive relatability"},
-                {"title": "Reacting to My First vs Latest Video", "description": "Compare your growth over time — audiences love transformation arcs", "why": "Nostalgia + growth = highly shareable content"},
-                {"title": "The One Strategy That Doubled My Views", "description": "Deep dive into your most effective growth tactic", "why": "Actionable single-strategy videos convert viewers to subscribers"}
-              ],
-              "title_hooks": [
-                {"original": "My Video", "improved": "I Tried This for 30 Days — The Results Shocked Me", "reason": "Curiosity gap + timeframe creates urgency"},
-                {"original": "Tips for Growth", "improved": "5 Growth Hacks YouTube Gurus Won't Tell You", "reason": "Contrarian angle + specific number increases CTR"}
-              ],
-              "content_gaps": [
-                {"gap": "No short-form content strategy", "opportunity": "Shorts/Reels can drive 3-5x more impressions to your channel", "action": "Create 2-3 Shorts per week from existing long-form content"},
-                {"gap": "Limited audience interaction content", "opportunity": "Q&A and community-driven videos boost retention by 40%%", "action": "Run monthly Q&A sessions or community polls"},
-                {"gap": "No collaboration content", "opportunity": "Collabs expose you to new audiences at zero cost", "action": "Reach out to 3 creators in your niche for cross-promotion"}
-              ],
-              "growth_strategy": [
-                {"strategy": "Thumbnail A/B Testing", "implementation": "Create 2 thumbnail variants for every video and swap after 48 hours based on CTR", "expected_impact": "15-30%% increase in click-through rate"},
-                {"strategy": "Content Batching", "implementation": "Dedicate 2 days per week for filming multiple videos to maintain consistency", "expected_impact": "More consistent upload schedule leading to algorithmic favor"},
-                {"strategy": "SEO Optimization", "implementation": "Research keywords using YouTube search suggestions and include them in titles, descriptions, and tags", "expected_impact": "20-50%% increase in organic search traffic"},
-                {"strategy": "Community Engagement", "implementation": "Reply to every comment in the first 2 hours after publishing and pin a discussion question", "expected_impact": "Higher engagement signals boost video distribution"}
-              ]
-            }
-            """;
-    }
 }

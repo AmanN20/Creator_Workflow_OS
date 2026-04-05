@@ -87,14 +87,14 @@ export default function DashboardPage() {
         <div className="card stat-card">
           <span className="stat-icon"><FileText size={24} /></span>
           <div className="stat-content">
-            <span className="stat-label">Total Posts</span>
+            <span className="stat-label">Tracked Items</span>
             <span className="stat-value">{analytics?.totalPosts || 0}</span>
           </div>
         </div>
         <div className="card stat-card">
           <span className="stat-icon"><CheckCircle size={24} /></span>
           <div className="stat-content">
-            <span className="stat-label">Completed</span>
+            <span className="stat-label">Posted</span>
             <span className="stat-value">{analytics?.completedPosts || 0}</span>
           </div>
         </div>
@@ -199,7 +199,7 @@ export default function DashboardPage() {
             </div>
           ) : (
             <p className="text-muted" style={{ padding: '24px 0', textAlign: 'center' }}>
-              No content posts yet. Create your first idea!
+              No tracked items yet. Create your first idea!
             </p>
           )}
         </div>

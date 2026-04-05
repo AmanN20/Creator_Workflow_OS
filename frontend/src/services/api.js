@@ -32,7 +32,7 @@ class ApiService {
     try {
       const response = await fetch(`${this.baseUrl}${endpoint}`, config);
 
-      if (response.status === 401) {
+      if (response.status === 401 && !endpoint.includes('/auth/login')) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         window.location.href = '/login';
@@ -143,6 +143,14 @@ class ApiService {
 
   async getScriptsByIdea(ideaId) {
     return this.request('GET', `/script/idea/${ideaId}`);
+  }
+
+  async saveManualScript(data) {
+    return this.request('POST', '/script/save', data);
+  }
+
+  async updateScriptCanvas(scriptId, canvasData) {
+    return this.request('PUT', `/script/${scriptId}/canvas`, { canvasData });
   }
 
   // Content Posts

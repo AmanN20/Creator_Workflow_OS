@@ -1,88 +1,17 @@
+/* ============================================================
+   Script Editor Page — Creator Workflow OS
+   ============================================================ */
+
 .script-page { max-width: 1200px; margin: 0 auto; }
 
 .script-layout {
-  display: grid;
-  grid-template-columns: 340px 1fr;
-  gap: var(--space-5);
-  align-items: flex-start;
-}
-
-@media (max-width: 900px) {
-  .script-layout { grid-template-columns: 1fr; }
-}
-
-.script-sidebar {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
-}
-
-/* Idea List */
-.idea-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  max-height: 240px;
-  overflow-y: auto;
-}
-
-.idea-list-item {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-1);
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-sm);
-  text-align: left;
-  transition: all var(--transition-fast);
   width: 100%;
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-family: inherit;
 }
 
-.idea-list-item:hover {
-  background: var(--color-background);
-}
-
-.idea-list-item-active {
-  background: var(--color-primary) !important;
-  color: var(--color-text-on-primary);
-}
-
-.idea-list-item-active .tag-outline {
-  color: var(--color-text-on-primary);
-  border-color: rgba(255, 255, 255, 0.4);
-}
-
-.idea-list-title {
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  line-height: 1.3;
-}
-
-.idea-list-tags {
-  display: flex;
-  gap: var(--space-1);
-  flex-wrap: wrap;
-}
-
-/* AI Panel */
-.ai-panel {}
-
-.ai-actions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.ai-actions .btn {
-  width: 100%;
-  justify-content: center;
-}
-
-/* Script Viewer */
+/* ── Script Viewer card ─────────────────────────────────── */
 .script-viewer {}
 
 .script-viewer-header {
@@ -94,31 +23,281 @@
   border-bottom: 1px solid var(--color-border);
 }
 
-.script-content-render {
-  font-size: var(--font-size-sm);
-  line-height: 1.8;
+/* ── Editor Container (card shell) ──────────────────────── */
+.script-editor-container {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: border-color var(--transition-normal), box-shadow var(--transition-normal);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+}
+
+.script-editor-container:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+/* ── Glassmorphism Toolbar ───────────────────────────────── */
+.editor-toolbar {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(245, 241, 228, 0.75);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.editor-toolbar .btn-ghost {
   color: var(--color-text-secondary);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
 }
 
-.script-content-render h3.script-section-title {
-  font-size: var(--font-size-base);
-  font-weight: 800;
+.editor-toolbar .btn-ghost:hover {
+  background: var(--color-primary-light);
   color: var(--color-primary);
-  margin: var(--space-6) 0 var(--space-3);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  transform: translateY(-1px);
 }
 
-.script-content-render h3.script-section-title:first-child {
-  margin-top: 0;
+.toolbar-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--color-border);
+  margin: 0 var(--space-2);
+  flex-shrink: 0;
 }
 
-.script-content-render strong {
-  color: var(--color-text-primary);
+/* Layer controls pill — appears when an image is selected */
+.toolbar-layer-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  background: var(--color-primary-light);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  padding: 3px 8px;
+  animation: fadeIn var(--transition-fast) ease forwards;
+}
+
+.layer-label {
+  display: flex;
+  align-items: center;
+  font-size: 11px;
   font-weight: 700;
+  color: var(--color-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-right: 4px;
 }
 
-/* Script History */
+/* ── Canvas — the main editing area ─────────────────────── */
+.editor-canvas {
+  position: relative;
+  width: 100%;
+  min-height: 560px;
+  overflow: hidden;
+  background: var(--color-surface);
+}
+
+/* Decorative snap grid (shown when snap is ON) */
+.editor-snap-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(to right,  rgba(138, 118, 80, 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(138, 118, 80, 0.07) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+/* ── Contenteditable text layer ─────────────────────────── */
+.native-rich-editor {
+  position: relative;
+  z-index: 1;           /* sits ABOVE snap grid, BELOW images */
+  min-height: 560px;
+  padding: var(--space-8);
+  outline: none;
+  color: var(--color-text-primary);
+  line-height: 1.85;
+  font-size: 1.05rem;
+  font-family: inherit;
+  background: transparent;
+  /* Let pointer events on images pass through */
+  pointer-events: auto;
+}
+
+.native-rich-editor:empty::before {
+  content: attr(placeholder);
+  color: var(--color-text-muted);
+  pointer-events: none;
+  display: block;
+}
+
+.native-rich-editor h1,
+.native-rich-editor h2,
+.native-rich-editor h3 {
+  color: var(--color-text);
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.native-rich-editor h3.script-section-title {
+  color: var(--color-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 2em;
+}
+
+.native-rich-editor p   { margin-bottom: 1em; }
+
+.native-rich-editor ul,
+.native-rich-editor ol  { margin-bottom: 1em; padding-left: 1.5em; }
+
+.native-rich-editor a {
+  color: var(--color-primary);
+  text-decoration: none;
+  border-bottom: 1px dashed var(--color-primary);
+}
+
+.native-rich-editor blockquote {
+  border-left: 4px solid var(--color-primary);
+  padding: 1em;
+  color: var(--color-text-secondary);
+  font-style: italic;
+  margin: 1.5em 0;
+  background: var(--color-background);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+
+/* ── Draggable Image Wrapper ─────────────────────────────── */
+.canvas-image-wrapper {
+  border-radius: 6px;
+  transition: box-shadow var(--transition-fast);
+  cursor: default;
+  /* touch-action: none; (for future touch support) */
+}
+
+.canvas-image-wrapper:hover {
+  box-shadow: 0 0 0 2px rgba(138, 118, 80, 0.35);
+}
+
+.canvas-image-selected {
+  box-shadow: 0 0 0 2px var(--color-primary), var(--shadow-lg) !important;
+}
+
+/* Move handle — the "drag zone" badge in the top-left */
+.img-move-handle {
+  position: absolute;
+  inset: 0;
+  cursor: grab;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  z-index: 5;
+  border-radius: 6px;
+}
+
+.img-move-handle:active { cursor: grabbing; }
+
+/* Small pill badge visible on hover-within */
+.img-move-handle > svg {
+  background: var(--color-primary);
+  color: #fff;
+  border-radius: 4px;
+  padding: 3px;
+  margin: 5px;
+  width: 22px;
+  height: 22px;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.canvas-image-selected .img-move-handle > svg {
+  opacity: 0.9;
+}
+
+.canvas-image-wrapper:hover .img-move-handle > svg {
+  opacity: 0.75;
+}
+
+/* Action buttons (delete etc.) */
+.img-action-btn {
+  position: absolute;
+  z-index: 10;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  backdrop-filter: blur(4px);
+}
+
+.img-delete-btn {
+  top: -10px;
+  right: -10px;
+  background: #fff;
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
+.img-delete-btn:hover {
+  background: var(--color-error);
+  color: #fff;
+  transform: scale(1.15);
+}
+
+/* ── Resize corner handles ───────────────────────────────── */
+.img-resize-handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: #fff;
+  border: 2px solid var(--color-primary);
+  border-radius: 2px;
+  z-index: 15;
+  transition: transform var(--transition-fast), background var(--transition-fast);
+}
+
+.img-resize-handle:hover {
+  background: var(--color-primary);
+  transform: scale(1.25);
+}
+
+.img-resize-nw { top: -5px;    left: -5px;   cursor: nwse-resize; }
+.img-resize-ne { top: -5px;    right: -5px;  cursor: nesw-resize; }
+.img-resize-sw { bottom: -5px; left: -5px;   cursor: nesw-resize; }
+.img-resize-se { bottom: -5px; right: -5px;  cursor: nwse-resize; }
+
+/* ── Canvas hint bar ─────────────────────────────────────── */
+.canvas-image-hint {
+  padding: 6px 16px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  background: var(--color-background);
+  border-top: 1px solid var(--color-border);
+  letter-spacing: 0.02em;
+}
+
+/* ── Script History ──────────────────────────────────────── */
 .script-history {
   display: flex;
   flex-direction: column;
@@ -139,10 +318,15 @@
   font-family: inherit;
 }
 
-.script-history-item:hover {
-  background: var(--color-background);
+.script-history-item:hover  { background: var(--color-background); }
+.script-history-active      { background: var(--color-primary-light) !important; }
+
+/* ── Spin animation for loading ──────────────────────────── */
+.spin {
+  animation: spin 1s linear infinite;
 }
 
-.script-history-active {
-  background: var(--color-primary-light) !important;
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }

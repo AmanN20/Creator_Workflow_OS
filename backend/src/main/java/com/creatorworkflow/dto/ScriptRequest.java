@@ -12,6 +12,7 @@ public class ScriptRequest {
 
     private String tone;
     private String existingScript;
+    private String canvasData;
 
     public Long getIdeaId() { return ideaId; }
     public void setIdeaId(Long ideaId) { this.ideaId = ideaId; }
@@ -21,4 +22,6 @@ public class ScriptRequest {
     public void setTone(String tone) { this.tone = tone; }
     public String getExistingScript() { return existingScript; }
     public void setExistingScript(String existingScript) { this.existingScript = existingScript; }
+    public String getCanvasData() { return canvasData; }
+    public void setCanvasData(String canvasData) { this.canvasData = canvasData; }
 }

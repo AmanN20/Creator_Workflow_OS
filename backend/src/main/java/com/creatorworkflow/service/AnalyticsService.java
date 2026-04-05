@@ -2,6 +2,7 @@ package com.creatorworkflow.service;
 
 import com.creatorworkflow.dto.AnalyticsDTO;
 import com.creatorworkflow.entity.ContentPost;
+import com.creatorworkflow.entity.Idea;
 import com.creatorworkflow.repository.ContentPostRepository;
 import com.creatorworkflow.repository.IdeaRepository;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,8 @@ public class AnalyticsService {
     }
 
     public AnalyticsDTO getAnalytics(Long userId) {
+        syncOldIdeasToContentPosts(userId);
+
         AnalyticsDTO analytics = new AnalyticsDTO();
 
         // Total counts
@@ -82,5 +85,22 @@ public class AnalyticsService {
         analytics.setWeeklyActivity(weeklyActivity);
 
         return analytics;
+    }
+
+    private void syncOldIdeasToContentPosts(Long userId) {
+        List<Idea> allIdeas = ideaRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        List<ContentPost> existingPosts = contentPostRepository.findByUserIdOrderByUpdatedAtDesc(userId);
+
+        for (Idea idea : allIdeas) {
+            boolean hasPost = existingPosts.stream().anyMatch(p -> idea.getId().equals(p.getIdeaId()));
+            if (!hasPost) {
+                ContentPost post = new ContentPost();
+                post.setUserId(userId);
+                post.setIdeaId(idea.getId());
+                post.setTitle(idea.getTitle());
+                post.setStatus("IDEA");
+                contentPostRepository.save(post);
+            }
+        }
     }
 }

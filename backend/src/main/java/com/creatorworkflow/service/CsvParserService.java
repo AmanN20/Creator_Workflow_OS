@@ -126,13 +126,19 @@ public class CsvParserService {
 
     @SuppressWarnings("unchecked")
     private String buildSummary(Map<String, Object> data) {
-        StringBuilder sb = new StringBuilder("YouTube Channel Analytics Summary:\n");
-        sb.append("Total Videos: ").append(data.get("totalVideos")).append("\n\n");
-        if (data.containsKey("topPerformers")) {
-            sb.append("TOP PERFORMERS:\n");
-            List<Map<String, String>> top = (List<Map<String, String>>) data.get("topPerformers");
-            for (int i=0; i<top.size(); i++) sb.append(i+1).append(". ").append(top.get(i).getOrDefault("video title", top.get(i).toString())).append("\n");
+        StringBuilder sb = new StringBuilder("YouTube Channel Analytics Text Data:\n\n");
+        List<Map<String, String>> videos = (List<Map<String, String>>) data.get("allVideos");
+        
+        for (Map<String, String> video : videos) {
+            sb.append("--- Video Entry ---\n");
+            for (Map.Entry<String, String> entry : video.entrySet()) {
+                if (entry.getValue() != null && !entry.getValue().trim().isEmpty()) {
+                    sb.append(entry.getKey()).append(": ").append(entry.getValue()).append("\n");
+                }
+            }
+            sb.append("\n");
         }
+        
         return sb.toString();
     }
 }

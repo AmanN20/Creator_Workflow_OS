@@ -42,4 +42,17 @@ public class ScriptController {
         List<ScriptDTO> scripts = scriptService.getScriptsByIdea(ideaId);
         return ResponseEntity.ok(scripts);
     }
+
+    @PostMapping("/save")
+    public ResponseEntity<ScriptDTO> saveManualScript(@Valid @RequestBody ScriptRequest request) {
+        ScriptDTO result = scriptService.saveManualScript(request);
+        return ResponseEntity.ok(result);
+    }
+
+    @PutMapping("/{id}/canvas")
+    public ResponseEntity<ScriptDTO> updateCanvas(@PathVariable Long id, @RequestBody java.util.Map<String, String> body) {
+        String canvasData = body.get("canvasData");
+        ScriptDTO result = scriptService.updateScriptCanvas(id, canvasData);
+        return ResponseEntity.ok(result);
+    }
 }

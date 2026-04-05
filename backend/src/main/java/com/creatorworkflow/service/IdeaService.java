@@ -2,7 +2,9 @@ package com.creatorworkflow.service;
 
 import com.creatorworkflow.dto.IdeaDTO;
 import com.creatorworkflow.entity.Idea;
+import com.creatorworkflow.entity.ContentPost;
 import com.creatorworkflow.exception.ResourceNotFoundException;
+import com.creatorworkflow.repository.ContentPostRepository;
 import com.creatorworkflow.repository.IdeaRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -15,13 +17,16 @@ import java.util.stream.Collectors;
 public class IdeaService {
 
     private final IdeaRepository ideaRepository;
+    private final ContentPostRepository contentPostRepository;
     private final CsvParserService csvParserService;
     private final GeminiService geminiService;
 
     public IdeaService(IdeaRepository ideaRepository,
+                       ContentPostRepository contentPostRepository,
                        CsvParserService csvParserService,
                        GeminiService geminiService) {
         this.ideaRepository = ideaRepository;
+        this.contentPostRepository = contentPostRepository;
         this.csvParserService = csvParserService;
         this.geminiService = geminiService;
     }
@@ -39,6 +44,15 @@ public class IdeaService {
         idea.setInputData(dto.getDescription());
 
         Idea saved = ideaRepository.save(idea);
+
+        // Auto-create a ContentPost so the workflow dashboard populates
+        ContentPost post = new ContentPost();
+        post.setUserId(userId);
+        post.setIdeaId(saved.getId());
+        post.setTitle(saved.getTitle());
+        post.setStatus("IDEA");
+        contentPostRepository.save(post);
+
         return toDTO(saved);
     }
 
@@ -68,6 +82,15 @@ public class IdeaService {
         idea.setOutputData(aiResponse);
 
         Idea saved = ideaRepository.save(idea);
+
+        // Auto-create a ContentPost for the CSV idea
+        ContentPost post = new ContentPost();
+        post.setUserId(userId);
+        post.setIdeaId(saved.getId());
+        post.setTitle(saved.getTitle());
+        post.setStatus("IDEA");
+        contentPostRepository.save(post);
+
         return toDTO(saved);
     }
 
@@ -110,6 +133,12 @@ public class IdeaService {
         }
 
         ideaRepository.delete(idea);
+
+        // Associated ContentPost will be deleted cascade automatically if FK exists, or we can manually delete it (FK is ON DELETE SET NULL currently).
+        // Since FK is SET NULL, let's delete the content post explicitly
+        contentPostRepository.findByUserId(userId).stream()
+                .filter(p -> ideaId.equals(p.getIdeaId()))
+                .forEach(contentPostRepository::delete);
     }
 
     public IdeaDTO getIdeaById(Long userId, Long ideaId) {

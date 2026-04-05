@@ -12,6 +12,8 @@ import java.util.List;
 public interface ContentPostRepository extends JpaRepository<ContentPost, Long> {
     List<ContentPost> findByUserIdOrderByUpdatedAtDesc(Long userId);
 
+    List<ContentPost> findByIdeaId(Long ideaId);
+    
     List<ContentPost> findByUserIdAndStatus(Long userId, String status);
 
     @Query("SELECT cp FROM ContentPost cp WHERE cp.userId = :userId AND " +
