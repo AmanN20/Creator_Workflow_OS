@@ -47,15 +47,23 @@ public class CsvParserService {
                 videos.add(video);
             }
 
-            Map<String, Object> result = new HashMap<>();
-            result.put("totalVideos", videos.size());
-            result.put("allVideos", videos);
-
             // Columns detection
             String titleCol = findColumn(headerIndex, "video title", "title", "content");
             String viewsCol = findColumn(headerIndex, "views", "video views", "total views");
             String ctrCol = findColumn(headerIndex, "impressions click-through rate (%)", "ctr", "click-through rate");
             String watchTimeCol = findColumn(headerIndex, "watch time (hours)", "watch time");
+
+            // Filter out the 'Totals' row (which has no title or says 'Total') and empty trailing rows
+            if (titleCol != null) {
+                videos.removeIf(video -> {
+                    String t = video.getOrDefault(titleCol, "").trim();
+                    return t.isEmpty() || t.equalsIgnoreCase("total");
+                });
+            }
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("totalVideos", videos.size());
+            result.put("allVideos", videos);
 
             // Top performers
             if (viewsCol != null) {
@@ -126,19 +134,80 @@ public class CsvParserService {
 
     @SuppressWarnings("unchecked")
     private String buildSummary(Map<String, Object> data) {
-        StringBuilder sb = new StringBuilder("YouTube Channel Analytics Text Data:\n\n");
         List<Map<String, String>> videos = (List<Map<String, String>>) data.get("allVideos");
-        
-        for (Map<String, String> video : videos) {
-            sb.append("--- Video Entry ---\n");
-            for (Map.Entry<String, String> entry : video.entrySet()) {
-                if (entry.getValue() != null && !entry.getValue().trim().isEmpty()) {
-                    sb.append(entry.getKey()).append(": ").append(entry.getValue()).append("\n");
-                }
+        StringBuilder sb = new StringBuilder();
+
+        sb.append("=== YouTube Channel Analytics Summary ===\n");
+        sb.append("Total Videos Analyzed: ").append(videos.size()).append("\n\n");
+
+        // Detect key column names
+        Set<String> allKeys = new HashSet<>();
+        for (Map<String, String> v : videos) allKeys.addAll(v.keySet());
+
+        String titleCol = findColumn(toIndexMap(allKeys), "video title", "title", "content");
+        String viewsCol = findColumn(toIndexMap(allKeys), "views", "video views", "total views");
+        String ctrCol   = findColumn(toIndexMap(allKeys), "impressions click-through rate (%)", "ctr", "click-through rate");
+        String watchCol = findColumn(toIndexMap(allKeys), "watch time (hours)", "watch time");
+        String subsCol  = findColumn(toIndexMap(allKeys), "subscribers", "subscribers gained");
+        String likesCol = findColumn(toIndexMap(allKeys), "likes", "likes (vs. dislikes)");
+        String impressCol = findColumn(toIndexMap(allKeys), "impressions");
+        String avgViewDur = findColumn(toIndexMap(allKeys), "average view duration", "avg. view duration");
+
+        // Compute aggregates
+        double totalViews = 0, totalWatchTime = 0, totalCtr = 0;
+        int ctrCount = 0;
+        for (Map<String, String> v : videos) {
+            if (viewsCol != null) totalViews += parseNumber(v.get(viewsCol));
+            if (watchCol != null) totalWatchTime += parseNumber(v.get(watchCol));
+            if (ctrCol != null && parseNumber(v.get(ctrCol)) > 0) {
+                totalCtr += parseNumber(v.get(ctrCol));
+                ctrCount++;
             }
-            sb.append("\n");
         }
+        sb.append("--- Aggregate Stats ---\n");
+        if (viewsCol != null) sb.append("Total Views: ").append(String.format("%.0f", totalViews)).append("\n");
+        if (watchCol != null) sb.append("Total Watch Time (hours): ").append(String.format("%.1f", totalWatchTime)).append("\n");
+        if (ctrCount > 0) sb.append("Average CTR: ").append(String.format("%.2f%%", totalCtr / ctrCount)).append("\n");
+        sb.append("\n");
+
+        // Sort by views descending — send top 10 and bottom 5
+        List<Map<String, String>> sorted = new ArrayList<>(videos);
+        if (viewsCol != null) {
+            String vc = viewsCol;
+            sorted.sort((a, b) -> Double.compare(parseNumber(b.get(vc)), parseNumber(a.get(vc))));
+        }
+
+        sb.append("--- All Videos Data ---\n");
+        sb.append("Format: Title | Views | CTR | Watch Time | Avg Duration | Likes\n\n");
         
+        for (int i = 0; i < sorted.size(); i++) {
+            appendVideoLine(sb, sorted.get(i), i + 1, titleCol, viewsCol, ctrCol, watchCol, avgViewDur, likesCol);
+        }
+
         return sb.toString();
+    }
+
+    private void appendVideoLine(StringBuilder sb, Map<String, String> video, int rank,
+                                  String titleCol, String viewsCol, String ctrCol,
+                                  String watchCol, String avgViewDur, String likesCol) {
+        sb.append(rank).append(". ");
+        if (titleCol != null) sb.append("\"").append(video.getOrDefault(titleCol, "N/A")).append("\"");
+        if (viewsCol != null) sb.append(" | Views: ").append(video.getOrDefault(viewsCol, "0"));
+        if (ctrCol != null)   sb.append(" | CTR: ").append(video.getOrDefault(ctrCol, "0")).append("%");
+        if (watchCol != null) sb.append(" | Watch: ").append(video.getOrDefault(watchCol, "0")).append("h");
+        if (avgViewDur != null) sb.append(" | AvgDur: ").append(video.getOrDefault(avgViewDur, "N/A"));
+        if (likesCol != null) sb.append(" | Likes: ").append(video.getOrDefault(likesCol, "0"));
+        sb.append("\n");
+    }
+
+    /**
+     * Helper: convert a set of column names into a fake header-index map
+     * so we can reuse findColumn().
+     */
+    private Map<String, Integer> toIndexMap(Set<String> keys) {
+        Map<String, Integer> map = new HashMap<>();
+        int i = 0;
+        for (String k : keys) map.put(k, i++);
+        return map;
     }
 }

@@ -470,8 +470,37 @@ export default function ScriptEditorPage() {
       </div>
 
       <div className="script-layout">
-        <div className="script-content-area" style={{ width: '100%' }}>
-          {selectedIdea ? (
+        {!selectedIdea ? (
+          <div className="card" style={{ width: '100%', padding: '32px' }}>
+             <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--color-text)', marginBottom: 24 }}>Select an Idea to Start Scripting</h3>
+             <div className="ideas-grid">
+               {ideas.length === 0 ? (
+                 <p className="text-muted" style={{ fontSize: '0.875rem' }}>No ideas yet. Create one on the Ideas page!</p>
+               ) : (
+                 ideas.map(idea => (
+                   <div 
+                     key={idea.id} 
+                     className="idea-selection-card"
+                     onClick={() => setSelectedIdea(idea)}
+                   >
+                     <h4>{idea.title}</h4>
+                     <p>{idea.description || `Type: ${idea.type}`}</p>
+                   </div>
+                 ))
+               )}
+             </div>
+          </div>
+        ) : (
+          <div className="script-content-area" style={{ width: '100%' }}>
+            <div style={{ marginBottom: 16 }}>
+              <button 
+                className="btn btn-ghost btn-sm" 
+                onClick={() => setSelectedIdea(null)}
+              >
+                &larr; Back to Ideas List
+              </button>
+            </div>
+            
             <div className="card script-viewer">
               {/* Script header */}
               {activeScript && (
@@ -609,15 +638,6 @@ export default function ScriptEditorPage() {
                 )}
               </div>
             </div>
-          ) : (
-            <div className="card" style={{ textAlign: 'center', padding: '100px 32px' }}>
-              <h3 style={{ color: 'var(--color-text)', marginBottom: 16, fontSize: '1.5rem', fontWeight: 800 }}>Start your script</h3>
-              <p className="text-muted" style={{ marginBottom: 24 }}>Select an idea from the Ideas board to launch the Script Editor.</p>
-              <button className="btn btn-primary" onClick={() => window.location.href = '/ideas'}>
-                Go to Ideas
-              </button>
-            </div>
-          )}
 
           {/* Script History */}
           {scripts.length > 1 && (
@@ -639,7 +659,8 @@ export default function ScriptEditorPage() {
               </div>
             </div>
           )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

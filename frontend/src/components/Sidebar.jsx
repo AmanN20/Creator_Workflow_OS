@@ -1,13 +1,13 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, Lightbulb, PenTool, FileText, Calendar, TrendingUp, Zap } from 'lucide-react';
+import { LayoutDashboard, Lightbulb, PenTool, BarChart3, Calendar, TrendingUp, Zap } from 'lucide-react';
 import './Sidebar.css';
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
   { path: '/ideas', label: 'Ideas', icon: <Lightbulb size={20} /> },
   { path: '/scripts', label: 'Script Editor', icon: <PenTool size={20} /> },
-  { path: '/content', label: 'Content', icon: <FileText size={20} /> },
+  { path: '/content', label: 'Content Analysis', icon: <BarChart3 size={20} /> },
   { path: '/scheduler', label: 'Scheduler', icon: <Calendar size={20} /> },
   { path: '/analytics', label: 'Analytics', icon: <TrendingUp size={20} /> },
 ];

@@ -88,6 +88,11 @@ class ApiService {
     return this.request('DELETE', `/ideas/${id}`);
   }
 
+  // Content Analysis (AI CSV results)
+  async getAnalyses() {
+    return this.request('GET', '/ideas/analyses');
+  }
+
   // NEW: Upload CSV for AI idea generation
   async uploadCsvIdea(file) {
     const formData = new FormData();

@@ -6,27 +6,32 @@ import com.creatorworkflow.entity.ContentPost;
 import com.creatorworkflow.exception.ResourceNotFoundException;
 import com.creatorworkflow.repository.ContentPostRepository;
 import com.creatorworkflow.repository.IdeaRepository;
+import com.creatorworkflow.repository.ScriptRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class IdeaService {
 
     private final IdeaRepository ideaRepository;
     private final ContentPostRepository contentPostRepository;
+    private final ScriptRepository scriptRepository;
     private final CsvParserService csvParserService;
     private final GeminiService geminiService;
 
     public IdeaService(IdeaRepository ideaRepository,
                        ContentPostRepository contentPostRepository,
+                       ScriptRepository scriptRepository,
                        CsvParserService csvParserService,
                        GeminiService geminiService) {
         this.ideaRepository = ideaRepository;
         this.contentPostRepository = contentPostRepository;
+        this.scriptRepository = scriptRepository;
         this.csvParserService = csvParserService;
         this.geminiService = geminiService;
     }
@@ -71,7 +76,7 @@ public class IdeaService {
         // 2. Send to Gemini
         String aiResponse = geminiService.analyzeWithGemini(summary);
 
-        // 3. Create and save the idea
+        // 3. Save to DB so Content Analysis page can retrieve it
         Idea idea = new Idea();
         idea.setUserId(userId);
         idea.setTitle("AI Analysis: YouTube CSV (" + parsedData.get("totalVideos") + " videos)");
@@ -82,16 +87,17 @@ public class IdeaService {
         idea.setOutputData(aiResponse);
 
         Idea saved = ideaRepository.save(idea);
-
-        // Auto-create a ContentPost for the CSV idea
-        ContentPost post = new ContentPost();
-        post.setUserId(userId);
-        post.setIdeaId(saved.getId());
-        post.setTitle(saved.getTitle());
-        post.setStatus("IDEA");
-        contentPostRepository.save(post);
-
         return toDTO(saved);
+    }
+
+    /**
+     * Returns only ai_csv type ideas for the Content Analysis page.
+     */
+    public List<IdeaDTO> getUserAnalyses(Long userId) {
+        return ideaRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
+                .filter(idea -> "ai_csv".equals(idea.getType()))
+                .map(this::toDTO)
+                .collect(Collectors.toList());
     }
 
     public List<IdeaDTO> getUserIdeas(Long userId, String search, String tag) {
@@ -105,7 +111,11 @@ public class IdeaService {
             ideas = ideaRepository.findByUserIdOrderByCreatedAtDesc(userId);
         }
 
-        return ideas.stream().map(this::toDTO).collect(Collectors.toList());
+        // Filter out ai_csv ideas — those are shown on Content Analysis page instead
+        return ideas.stream()
+                .filter(idea -> !"ai_csv".equals(idea.getType()))
+                .map(this::toDTO)
+                .collect(Collectors.toList());
     }
 
     public IdeaDTO updateIdea(Long userId, Long ideaId, IdeaDTO dto) {
@@ -124,6 +134,7 @@ public class IdeaService {
         return toDTO(updated);
     }
 
+    @Transactional
     public void deleteIdea(Long userId, Long ideaId) {
         Idea idea = ideaRepository.findById(ideaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Idea not found with id: " + ideaId));
@@ -132,13 +143,14 @@ public class IdeaService {
             throw new ResourceNotFoundException("Idea not found");
         }
 
-        ideaRepository.delete(idea);
+        // 1. Delete all scripts for this idea
+        scriptRepository.deleteByIdeaId(ideaId);
 
-        // Associated ContentPost will be deleted cascade automatically if FK exists, or we can manually delete it (FK is ON DELETE SET NULL currently).
-        // Since FK is SET NULL, let's delete the content post explicitly
-        contentPostRepository.findByUserId(userId).stream()
-                .filter(p -> ideaId.equals(p.getIdeaId()))
-                .forEach(contentPostRepository::delete);
+        // 2. Delete associated ContentPosts
+        contentPostRepository.deleteAll(contentPostRepository.findByIdeaId(ideaId));
+
+        // 3. Finally delete the Idea
+        ideaRepository.delete(idea);
     }
 
     public IdeaDTO getIdeaById(Long userId, Long ideaId) {

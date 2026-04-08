@@ -45,6 +45,13 @@ public class IdeaController {
         return ResponseEntity.ok(result);
     }
 
+    @GetMapping("/analyses")
+    public ResponseEntity<List<IdeaDTO>> getAnalyses() {
+        Long userId = SecurityUtils.getCurrentUserId();
+        List<IdeaDTO> analyses = ideaService.getUserAnalyses(userId);
+        return ResponseEntity.ok(analyses);
+    }
+
     @GetMapping
     public ResponseEntity<List<IdeaDTO>> getIdeas(
             @RequestParam(required = false) String search,

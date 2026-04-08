@@ -7,7 +7,7 @@ import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import IdeasPage from './pages/IdeasPage';
 import ScriptEditorPage from './pages/ScriptEditorPage';
-import ContentPage from './pages/ContentPage';
+import ContentAnalysisPage from './pages/ContentAnalysisPage';
 import SchedulerPage from './pages/SchedulerPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 
@@ -73,7 +73,7 @@ function App() {
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="ideas" element={<IdeasPage />} />
             <Route path="scripts" element={<ScriptEditorPage />} />
-            <Route path="content" element={<ContentPage />} />
+            <Route path="content" element={<ContentAnalysisPage />} />
             <Route path="scheduler" element={<SchedulerPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
           </Route>

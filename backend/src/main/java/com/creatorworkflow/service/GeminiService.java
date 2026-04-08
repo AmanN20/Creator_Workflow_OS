@@ -24,10 +24,10 @@ public class GeminiService {
     @Value("${app.gemini.model}")
     private String model;
 
-    private static final int MAX_RETRIES = 3;
+    private static final int MAX_RETRIES = 2;
     private static final String[] FALLBACK_MODELS = {
+        "gemini-flash-latest",
         "gemini-2.5-flash",
-        "gemini-2.0-flash",
         "gemini-2.0-flash-lite"
     };
 
@@ -44,10 +44,16 @@ public class GeminiService {
     public String analyzeWithGemini(String csvSummary) {
         String prompt = buildPrompt(csvSummary);
 
-        // Try primary model with retries, then fallback models
+        // Build list of models to try (primary + fallbacks)
+        List<String> modelsToTry = new java.util.ArrayList<>();
+        if (model != null && !model.isBlank()) {
+            modelsToTry.add(model);
+        }
+        modelsToTry.addAll(java.util.Arrays.asList(FALLBACK_MODELS));
+
         Exception lastException = null;
 
-        for (String currentModel : FALLBACK_MODELS) {
+        for (String currentModel : modelsToTry) {
             for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
                 try {
                     return callGemini(currentModel, prompt);
@@ -59,17 +65,18 @@ public class GeminiService {
                         // Model not available — skip to next model immediately
                         break;
                     } else if (msg.contains("429") || msg.contains("Too Many Requests") || msg.contains("RESOURCE_EXHAUSTED")) {
-                        // Rate limited — wait with exponential backoff, then retry
-                        long waitMs = (long) Math.pow(2, attempt) * 2000; // 4s, 8s, 16s
+                        // Rate limited — wait, then retry
+                        long waitMs = (long) Math.pow(2, attempt) * 4000; // 8s, 16s
                         try {
                             Thread.sleep(waitMs);
                         } catch (InterruptedException ie) {
                             Thread.currentThread().interrupt();
                             throw new BadRequestException("Request interrupted during rate limit retry");
                         }
-                        // If last retry for this model, try next model
+                        // If rate limited even after retries, throw immediately. 
+                        // Do not try fallback models because rate limits apply to the whole API key.
                         if (attempt == MAX_RETRIES) {
-                            break;
+                            throw new BadRequestException("API Error: Rate Limit Exceeded or Quota Exhausted. Please wait a minute and try again.");
                         }
                     } else {
                         // Other error — still try next model
@@ -79,10 +86,11 @@ public class GeminiService {
             }
         }
 
-        // All retries exhausted — throw the exception instead of returning dummy data
+        // All retries exhausted
         String errorMsg = lastException != null && lastException.getMessage() != null 
             ? lastException.getMessage() : "Unknown API Error";
-        throw new BadRequestException("API Error: Rate Limit Exceeded or Quota Exhausted (" + errorMsg + "). Please wait a minute and try again.");
+            
+        throw new BadRequestException("API Error: " + errorMsg);
     }
 
     private String callGemini(String modelName, String prompt) {
@@ -123,37 +131,37 @@ public class GeminiService {
 
     private String buildPrompt(String csvSummary) {
         return """
-            Act as a YouTube growth expert and content strategist.
+            Act as an elite YouTube growth expert and content strategist.
             
             Analyze the following YouTube channel analytics data carefully:
             
             %s
             
-            Based on this data, provide your analysis STRICTLY in the following JSON format. 
+            Based on this data, provide a heavily detailed, comprehensive per-video breakdown STRICTLY in the following JSON format. 
             Do NOT include any text outside the JSON. Do NOT use markdown code blocks.
             Return ONLY valid JSON:
             
             {
-              "video_ideas": [
-                {"title": "...", "description": "...", "why": "..."}
-              ],
-              "title_hooks": [
-                {"original": "...", "improved": "...", "reason": "..."}
-              ],
-              "content_gaps": [
-                {"gap": "...", "opportunity": "...", "action": "..."}
-              ],
-              "growth_strategy": [
-                {"strategy": "...", "implementation": "...", "expected_impact": "..."}
+              "video_analyses": [
+                {
+                  "original_title": "...",
+                  "metric_insights": "Extremely detailed, multi-sentence insight breaking down exactly why this video performed the way it did based on its Views, CTR, Watch Time, Avg View Duration, and Likes. Discuss viewer psychology and algorithm impact.",
+                  "improved_titles": [
+                    {"improved": "...", "reason": "Detailed explanation of the psychological hook and why it would improve CTR."}
+                  ],
+                  "content_gaps": [
+                    {"gap": "...", "opportunity": "Extremely descriptive explanation of how this gap can be exploited, including potential angles and viewer value."}
+                  ]
+                }
               ]
             }
             
-            Requirements:
-            - Generate exactly 10 viral video ideas based on patterns in the data
-            - Suggest better titles for the worst-performing videos (up to 5)
-            - Identify at least 3 content gaps
-            - Provide at least 4 growth strategies
-            - Be specific, actionable, and data-driven
+            CRITICAL REQUIREMENTS:
+            - Analyze EVERY SINGLE VIDEO provided in the data. Do NOT skip any videos. Do not limit to 10.
+            - "metric_insights": Must be at least 3-5 sentences of deep, analytical reasoning. Don't just restate the numbers; tell me WHAT the numbers mean for audience retention and algorithm discovery.
+            - "improved_titles": Provide 3 powerful, highly-clickable titles for each video, with deep reasoning on the psychological hooks used.
+            - "content_gaps": Provide 2-3 specific content gaps for each video. The descriptions must be highly descriptive, explaining exactly how to execute the follow-up video for maximum views.
+            - Be as descriptive and comprehensive as possible.
             """.formatted(csvSummary);
     }
 

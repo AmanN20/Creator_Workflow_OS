@@ -185,6 +185,7 @@ export default function IdeasPage() {
       loadIdeas();
     } catch (err) {
       console.error('Failed to delete idea:', err);
+      alert('Failed to delete idea: ' + (err.message || 'Unknown error'));
     }
   };
 
