@@ -93,6 +93,39 @@ public class GeminiService {
         throw new BadRequestException("API Error: " + errorMsg);
     }
 
+    /**
+     * General-purpose text analysis — used by the Script Editor side panel.
+     */
+    public String analyzeText(String text, String customPrompt) {
+        String fullPrompt = customPrompt + "\n\n" + text;
+
+        List<String> modelsToTry = new java.util.ArrayList<>();
+        if (model != null && !model.isBlank()) modelsToTry.add(model);
+        modelsToTry.addAll(java.util.Arrays.asList(FALLBACK_MODELS));
+
+        Exception lastException = null;
+        for (String currentModel : modelsToTry) {
+            for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+                try {
+                    return callGemini(currentModel, fullPrompt);
+                } catch (Exception e) {
+                    lastException = e;
+                    String msg = e.getMessage() != null ? e.getMessage() : "";
+                    if (msg.contains("404") || msg.contains("Not Found")) break;
+                    if (msg.contains("429") || msg.contains("RESOURCE_EXHAUSTED")) {
+                        long waitMs = (long) Math.pow(2, attempt) * 4000;
+                        try { Thread.sleep(waitMs); } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                            throw new BadRequestException("Request interrupted");
+                        }
+                        if (attempt == MAX_RETRIES) throw new BadRequestException("Rate limit exceeded. Wait and retry.");
+                    } else break;
+                }
+            }
+        }
+        throw new BadRequestException("API Error: " + (lastException != null ? lastException.getMessage() : "Unknown"));
+    }
+
     private String callGemini(String modelName, String prompt) {
         Map<String, Object> requestBody = Map.of(
             "contents", List.of(
@@ -102,7 +135,7 @@ public class GeminiService {
             ),
             "generationConfig", Map.of(
                 "temperature", 0.8,
-                "maxOutputTokens", 8192
+                "maxOutputTokens", 32768
             ),
             "safetySettings", List.of(
                 Map.of("category", "HARM_CATEGORY_HARASSMENT", "threshold", "BLOCK_NONE"),
@@ -131,37 +164,62 @@ public class GeminiService {
 
     private String buildPrompt(String csvSummary) {
         return """
-            Act as an elite YouTube growth expert and content strategist.
-            
-            Analyze the following YouTube channel analytics data carefully:
+            You are an elite YouTube growth strategist who has helped channels grow from 0 to 1M+ subscribers.
+            Analyze this YouTube channel performance data and generate SPECIFIC, ACTIONABLE insights.
             
             %s
             
-            Based on this data, provide a heavily detailed, comprehensive per-video breakdown STRICTLY in the following JSON format. 
-            Do NOT include any text outside the JSON. Do NOT use markdown code blocks.
-            Return ONLY valid JSON:
+            Return ONLY valid JSON (no markdown, no text outside JSON).
+            Use bold, YouTube-viral style titles similar to MrBeast, Dhruv Rathee, or Ali Abdaal.
             
             {
+              "summary": {
+                "total_videos": 0,
+                "average_ctr": 0.0,
+                "total_views": 0,
+                "best_performing_video": "title"
+              },
               "video_analyses": [
                 {
-                  "original_title": "...",
-                  "metric_insights": "Extremely detailed, multi-sentence insight breaking down exactly why this video performed the way it did based on its Views, CTR, Watch Time, Avg View Duration, and Likes. Discuss viewer psychology and algorithm impact.",
+                  "original_title": "exact title from data",
+                  "video_id": "echo back the [ID:xxx] if present in the data, otherwise null",
+                  "metrics": {"views": 0, "ctr": 0.0, "watch_time_hours": 0.0},
+                  "score": 75,
+                  "metric_insights": "2-3 lines explaining WHY this video performed this way. Discuss CTR psychology, retention patterns, and algorithm signals. Be specific, not generic.",
                   "improved_titles": [
-                    {"improved": "...", "reason": "Detailed explanation of the psychological hook and why it would improve CTR."}
+                    {"improved": "Viral-style title 1", "reason": "Why this hook works"},
+                    {"improved": "Viral-style title 2", "reason": "Psychological trigger used"},
+                    {"improved": "Viral-style title 3", "reason": "Curiosity gap explanation"},
+                    {"improved": "Viral-style title 4", "reason": "Emotional hook used"},
+                    {"improved": "Viral-style title 5", "reason": "Urgency or FOMO element"}
                   ],
                   "content_gaps": [
-                    {"gap": "...", "opportunity": "Extremely descriptive explanation of how this gap can be exploited, including potential angles and viewer value."}
+                    {"gap": "Missing element 1", "opportunity": "How to exploit this gap"},
+                    {"gap": "Missing element 2", "opportunity": "Specific angle to cover"},
+                    {"gap": "Missing element 3", "opportunity": "Untapped audience segment"},
+                    {"gap": "Missing element 4", "opportunity": "Content format opportunity"}
+                  ],
+                  "suggestions": [
+                    "Actionable improvement 1 with specific steps",
+                    "Actionable improvement 2 focusing on retention",
+                    "Actionable improvement 3 for algorithm optimization"
                   ]
                 }
               ]
             }
             
-            CRITICAL REQUIREMENTS:
-            - Analyze EVERY SINGLE VIDEO provided in the data. Do NOT skip any videos. Do not limit to 10.
-            - "metric_insights": Must be at least 3-5 sentences of deep, analytical reasoning. Don't just restate the numbers; tell me WHAT the numbers mean for audience retention and algorithm discovery.
-            - "improved_titles": Provide 3 powerful, highly-clickable titles for each video, with deep reasoning on the psychological hooks used.
-            - "content_gaps": Provide 2-3 specific content gaps for each video. The descriptions must be highly descriptive, explaining exactly how to execute the follow-up video for maximum views.
-            - Be as descriptive and comprehensive as possible.
+            CRITICAL RULES:
+            - Include "summary" with aggregate stats.
+            - Include "metrics" per video echoing back Views, CTR (as decimal), Watch Time.
+            - Include "score" (0-100) per video based on overall performance.
+            - If the data contains [ID:xxx], echo back the video_id value. Otherwise set video_id to null.
+            - Analyze EVERY video. Do NOT skip any.
+            - "metric_insights": 2-3 sentences of DEEP analysis. Why is CTR low/high? What does watch time indicate? How does the algorithm see this video?
+            - "improved_titles": EXACTLY 5 viral-style titles per video using curiosity, emotion, urgency hooks.
+            - "content_gaps": EXACTLY 4 specific gaps per video with exploitation strategies.
+            - "suggestions": EXACTLY 3 actionable improvements per video.
+            - Focus on CTR psychology, viewer retention, and content positioning.
+            - NEVER give generic advice. Every insight must be specific to that video's data.
             """.formatted(csvSummary);
     }
 

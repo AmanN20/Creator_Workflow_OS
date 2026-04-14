@@ -5,6 +5,8 @@ import {
   Bold, Italic, Underline, Link as LinkIcon, Image as ImageIcon,
   List, ListOrdered,
   Grid, Layers, Trash2, ChevronUp, ChevronDown, Move,
+  ChevronRight, ChevronLeft, Search, ExternalLink,
+  Loader2, X, FileText, Youtube, BookOpen, Tag,
 } from 'lucide-react';
 import api from '../services/api';
 import './ScriptEditorPage.css';
@@ -177,6 +179,12 @@ export default function ScriptEditorPage() {
   const [canvasImages, setCanvasImages] = useState([]); // { id, src, x, y, width, height, zIndex, alt }
   const [selectedImgId, setSelectedImgId] = useState(null);
   const [snapEnabled, setSnapEnabled] = useState(false);
+
+  /* Side panel state */
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [panelLoading, setPanelLoading] = useState(false);
+  const [panelData, setPanelData] = useState(null);
+  const [panelError, setPanelError] = useState('');
 
   const location = useLocation();
   const editorRef = useRef(null);
@@ -457,6 +465,31 @@ export default function ScriptEditorPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [selectedImgId, deleteImage]);
 
+  /* ──────── Side Panel — research script topic ──────── */
+  const handleResearch = async () => {
+    const text = editorRef.current?.innerText?.trim();
+    if (!text || text.length < 20) {
+      setPanelError('Write at least a few sentences before researching.');
+      return;
+    }
+    setPanelLoading(true);
+    setPanelError('');
+    try {
+      const res = await api.researchScript(text);
+      setPanelData(res);
+    } catch (err) {
+      setPanelError(err.message || 'Research failed');
+    } finally {
+      setPanelLoading(false);
+    }
+  };
+
+  const togglePanel = () => {
+    const next = !panelOpen;
+    setPanelOpen(next);
+    if (next && !panelData && !panelLoading) handleResearch();
+  };
+
   /* ──────── JSX ──────── */
   return (
     <div className="script-page animate-fade-in">
@@ -491,7 +524,8 @@ export default function ScriptEditorPage() {
              </div>
           </div>
         ) : (
-          <div className="script-content-area" style={{ width: '100%' }}>
+          <div className="script-editor-with-panel">
+            <div className={`script-content-area ${panelOpen ? 'script-content-area--shrunk' : ''}`}>
             <div style={{ marginBottom: 16 }}>
               <button 
                 className="btn btn-ghost btn-sm" 
@@ -531,13 +565,19 @@ export default function ScriptEditorPage() {
 
               {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
 
-              {/* ─── Editor Container ─── */}
-              <div className="script-editor-container" style={{ marginTop: 16 }}>
+              {/* ─── Editor Container Wrapper ─── */}
+              <div style={{ position: 'relative', marginTop: 16 }}>
+                {/* Toggle arrow — attached to right edge of editor */}
+                <button className="panel-toggle-btn" onClick={togglePanel} title={panelOpen ? 'Close panel' : 'AI Analysis'}>
+                  {panelOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+                </button>
 
-                {/* ── Toolbar ── */}
-                <div className="editor-toolbar">
-                  {/* AI buttons */}
-                  <button className="btn btn-primary btn-sm" onClick={handleGenerate} disabled={generating} title="AI Write">
+                <div className="script-editor-container" style={{ marginTop: 0 }}>
+
+                  {/* ── Toolbar ── */}
+                  <div className="editor-toolbar">
+                    {/* AI buttons */}
+                    <button className="btn btn-primary btn-sm" onClick={handleGenerate} disabled={generating} title="AI Write">
                     {generating ? <RefreshCw size={14} className="spin" /> : <Wand2 size={14} />}
                     <span style={{ marginLeft: 4 }}>AI Write</span>
                   </button>
@@ -638,8 +678,8 @@ export default function ScriptEditorPage() {
                 )}
               </div>
             </div>
+          </div>
 
-          {/* Script History */}
           {scripts.length > 1 && (
             <div className="card" style={{ marginTop: 20 }}>
               <h3 className="card-title" style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -659,6 +699,106 @@ export default function ScriptEditorPage() {
               </div>
             </div>
           )}
+          </div>
+
+            {/* ── Research Side Panel ── */}
+            <div className={`script-side-panel ${panelOpen ? 'script-side-panel--open' : ''}`}>
+              <div className="panel-header">
+                <h3><Search size={16} /> Research</h3>
+                <button className="panel-close" onClick={() => setPanelOpen(false)}><X size={16} /></button>
+              </div>
+
+              {panelLoading && (
+                <div className="panel-loading">
+                  <Loader2 size={24} className="spin" />
+                  <span>Searching the web...</span>
+                </div>
+              )}
+
+              {panelError && <div className="panel-error">{panelError}</div>}
+
+              {panelData && !panelLoading && (
+                <div className="panel-content">
+                  {/* Detected Topic */}
+                  {panelData.topic && (
+                    <div className="panel-section">
+                      <div className="panel-section-title"><Tag size={14} /> Detected Topic</div>
+                      <p style={{ fontWeight: 600, fontSize: '0.95rem' }}>{panelData.topic}</p>
+                      {panelData.keywords?.length > 0 && (
+                        <div className="panel-tags" style={{ marginTop: 8 }}>
+                          {panelData.keywords.map((k, i) => <span key={i} className="panel-tag">{k}</span>)}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Articles */}
+                  {panelData.articles?.length > 0 && (
+                    <div className="panel-section">
+                      <div className="panel-section-title"><FileText size={14} /> Articles ({panelData.articles.length})</div>
+                      <div className="panel-resource-list">
+                        {panelData.articles.map((r, i) => (
+                          <a key={i} href={r.link} target="_blank" rel="noopener noreferrer" className="panel-resource-card">
+                            <div className="panel-resource-title">{r.title} <ExternalLink size={12} /></div>
+                            <div className="panel-resource-domain">{r.domain}</div>
+                            {r.snippet && <div className="panel-resource-snippet">{r.snippet}</div>}
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* YouTube */}
+                  {panelData.youtube?.length > 0 && (
+                    <div className="panel-section">
+                      <div className="panel-section-title"><Youtube size={14} /> YouTube ({panelData.youtube.length})</div>
+                      <div className="panel-resource-list">
+                        {panelData.youtube.map((r, i) => (
+                          <a key={i} href={r.link} target="_blank" rel="noopener noreferrer" className="panel-resource-card panel-resource-card--video">
+                            <div className="panel-resource-title">{r.title} <ExternalLink size={12} /></div>
+                            <div className="panel-resource-domain">{r.domain}</div>
+                            {r.snippet && <div className="panel-resource-snippet">{r.snippet}</div>}
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Guides / Other */}
+                  {panelData.guides?.length > 0 && (
+                    <div className="panel-section">
+                      <div className="panel-section-title"><BookOpen size={14} /> Guides & Resources ({panelData.guides.length})</div>
+                      <div className="panel-resource-list">
+                        {panelData.guides.map((r, i) => (
+                          <a key={i} href={r.link} target="_blank" rel="noopener noreferrer" className="panel-resource-card">
+                            <div className="panel-resource-title">{r.title} <ExternalLink size={12} /></div>
+                            <div className="panel-resource-domain">{r.domain}</div>
+                            {r.snippet && <div className="panel-resource-snippet">{r.snippet}</div>}
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {panelData.totalResults === 0 && (
+                    <div className="panel-empty">
+                      <p>No results found. Try writing more content.</p>
+                    </div>
+                  )}
+
+                  <button className="btn btn-primary btn-sm" style={{ width: '100%', marginTop: 12 }} onClick={handleResearch} disabled={panelLoading}>
+                    <RefreshCw size={14} /> Re-search
+                  </button>
+                </div>
+              )}
+
+              {!panelData && !panelLoading && !panelError && (
+                <div className="panel-empty">
+                  <p>Click to find resources related to your script.</p>
+                  <button className="btn btn-primary btn-sm" onClick={handleResearch}><Search size={14} /> Find Resources</button>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

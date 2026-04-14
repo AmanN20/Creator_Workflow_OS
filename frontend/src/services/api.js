@@ -158,6 +158,14 @@ class ApiService {
     return this.request('PUT', `/script/${scriptId}/canvas`, { canvasData });
   }
 
+  async analyzeScript(text) {
+    return this.request('POST', '/script/analyze', { text });
+  }
+
+  async researchScript(text) {
+    return this.request('POST', '/script/research', { text });
+  }
+
   // Content Posts
   async getContentPosts() {
     return this.request('GET', '/content');

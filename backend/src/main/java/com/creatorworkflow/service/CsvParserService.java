@@ -48,10 +48,28 @@ public class CsvParserService {
             }
 
             // Columns detection
-            String titleCol = findColumn(headerIndex, "video title", "title", "content");
+            String titleCol = findColumn(headerIndex, "video title", "title");
             String viewsCol = findColumn(headerIndex, "views", "video views", "total views");
             String ctrCol = findColumn(headerIndex, "impressions click-through rate (%)", "ctr", "click-through rate");
             String watchTimeCol = findColumn(headerIndex, "watch time (hours)", "watch time");
+            // Detect explicit video ID column
+            String videoIdCol = findColumn(headerIndex, "video id", "videoid", "video_id", "content");
+            // Auto-detect: check if any unmapped column has YouTube-ID-shaped values (11 chars, alphanumeric+-_)
+            if (videoIdCol == null && !videos.isEmpty()) {
+                for (Map.Entry<String, Integer> entry : headerIndex.entrySet()) {
+                    String col = entry.getKey();
+                    if (col.equals(titleCol) || col.equals(viewsCol) || col.equals(ctrCol) || col.equals(watchTimeCol)) continue;
+                    boolean looksLikeIds = true;
+                    int checked = 0;
+                    for (Map<String, String> v : videos) {
+                        String val = v.getOrDefault(col, "").trim();
+                        if (val.isEmpty()) continue;
+                        if (!val.matches("[A-Za-z0-9_-]{10,12}")) { looksLikeIds = false; break; }
+                        checked++;
+                    }
+                    if (looksLikeIds && checked > 0) { videoIdCol = col; break; }
+                }
+            }
 
             // Filter out the 'Totals' row (which has no title or says 'Total') and empty trailing rows
             if (titleCol != null) {
@@ -64,6 +82,7 @@ public class CsvParserService {
             Map<String, Object> result = new HashMap<>();
             result.put("totalVideos", videos.size());
             result.put("allVideos", videos);
+            result.put("videoIdCol", videoIdCol);
 
             // Top performers
             if (viewsCol != null) {
@@ -144,7 +163,7 @@ public class CsvParserService {
         Set<String> allKeys = new HashSet<>();
         for (Map<String, String> v : videos) allKeys.addAll(v.keySet());
 
-        String titleCol = findColumn(toIndexMap(allKeys), "video title", "title", "content");
+        String titleCol = findColumn(toIndexMap(allKeys), "video title", "title");
         String viewsCol = findColumn(toIndexMap(allKeys), "views", "video views", "total views");
         String ctrCol   = findColumn(toIndexMap(allKeys), "impressions click-through rate (%)", "ctr", "click-through rate");
         String watchCol = findColumn(toIndexMap(allKeys), "watch time (hours)", "watch time");
@@ -152,6 +171,7 @@ public class CsvParserService {
         String likesCol = findColumn(toIndexMap(allKeys), "likes", "likes (vs. dislikes)");
         String impressCol = findColumn(toIndexMap(allKeys), "impressions");
         String avgViewDur = findColumn(toIndexMap(allKeys), "average view duration", "avg. view duration");
+        String videoIdCol = (String) data.get("videoIdCol");
 
         // Compute aggregates
         double totalViews = 0, totalWatchTime = 0, totalCtr = 0;
@@ -181,7 +201,7 @@ public class CsvParserService {
         sb.append("Format: Title | Views | CTR | Watch Time | Avg Duration | Likes\n\n");
         
         for (int i = 0; i < sorted.size(); i++) {
-            appendVideoLine(sb, sorted.get(i), i + 1, titleCol, viewsCol, ctrCol, watchCol, avgViewDur, likesCol);
+            appendVideoLine(sb, sorted.get(i), i + 1, titleCol, viewsCol, ctrCol, watchCol, avgViewDur, likesCol, videoIdCol);
         }
 
         return sb.toString();
@@ -189,8 +209,9 @@ public class CsvParserService {
 
     private void appendVideoLine(StringBuilder sb, Map<String, String> video, int rank,
                                   String titleCol, String viewsCol, String ctrCol,
-                                  String watchCol, String avgViewDur, String likesCol) {
+                                  String watchCol, String avgViewDur, String likesCol, String videoIdCol) {
         sb.append(rank).append(". ");
+        if (videoIdCol != null) sb.append("[ID:").append(video.getOrDefault(videoIdCol, "").trim()).append("] ");
         if (titleCol != null) sb.append("\"").append(video.getOrDefault(titleCol, "N/A")).append("\"");
         if (viewsCol != null) sb.append(" | Views: ").append(video.getOrDefault(viewsCol, "0"));
         if (ctrCol != null)   sb.append(" | CTR: ").append(video.getOrDefault(ctrCol, "0")).append("%");
