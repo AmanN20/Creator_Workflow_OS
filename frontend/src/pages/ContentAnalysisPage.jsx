@@ -49,7 +49,9 @@ export default function ContentAnalysisPage() {
   const [csvFile, setCsvFile] = useState(null);
   const [csvUploading, setCsvUploading] = useState(false);
   const [csvError, setCsvError] = useState('');
+  const [csvElapsed, setCsvElapsed] = useState(0);
   const fileInputRef = useRef(null);
+  const elapsedTimerRef = useRef(null);
 
   // Sort/Filter
   const [sortMode, setSortMode] = useState('default');
@@ -80,16 +82,24 @@ export default function ContentAnalysisPage() {
 
   const handleCsvUpload = async () => {
     if (!csvFile) { setCsvError('Please select a CSV file'); return; }
-    setCsvUploading(true); setCsvError('');
+    setCsvUploading(true); setCsvError(''); setCsvElapsed(0);
+
+    // Start live elapsed-time counter so user knows it's working
+    elapsedTimerRef.current = setInterval(() => setCsvElapsed(s => s + 1), 1000);
+
     try {
-      await api.uploadCsvIdea(csvFile);
+      await api.uploadCsvIdea(csvFile, 'analysis');
       setCsvFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
       const refreshed = await api.getAnalyses();
       setAnalyses(refreshed);
       if (refreshed.length > 0) setExpandedAnalyses(prev => ({ ...prev, [refreshed[0].id]: true }));
     } catch (err) { setCsvError(err.message || 'Failed to process CSV'); }
-    finally { setCsvUploading(false); }
+    finally {
+      clearInterval(elapsedTimerRef.current);
+      elapsedTimerRef.current = null;
+      setCsvUploading(false);
+    }
   };
 
   const toggleAnalysis = (id) => setExpandedAnalyses(prev => ({ ...prev, [id]: !prev[id] }));
@@ -322,6 +332,27 @@ export default function ContentAnalysisPage() {
             ⚠️ AI response was partially truncated — showing {videos.length} of {totalVideos} videos. Delete this analysis and re-upload for complete results.
           </div>
         )}
+
+        {/* ── Video Ideas (new prompt format fallback) ── */}
+        {output.video_ideas && output.video_ideas.length > 0 && videos.length === 0 && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+            {output.video_ideas.map((idea, i) => (
+              <div key={i} className="ca-video-card" style={{ padding: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                  <Lightbulb size={18} style={{ color: 'var(--color-warning)' }} />
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700 }}>{i + 1}. {idea.title}</h3>
+                </div>
+                {idea.description && <p style={{ margin: '0 0 8px', fontSize: '14px', color: 'var(--color-text-muted)', lineHeight: 1.5 }}>{idea.description}</p>}
+                {idea.why && (
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px', fontSize: '13px', color: 'var(--color-success)' }}>
+                    <TrendingUp size={13} /> {idea.why}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* ── Metrics Bar ── */}
         <div className="ca-metrics-bar">
           <div className="ca-metric-card">
@@ -646,7 +677,9 @@ export default function ContentAnalysisPage() {
 
         <div className="ca-upload-actions">
           <button className="btn btn-primary" onClick={handleCsvUpload} disabled={!csvFile || csvUploading}>
-            {csvUploading ? <><span className="ca-spinner" /> Analyzing with AI…</> : <><Sparkles size={15} /> Analyze with AI</>}
+            {csvUploading
+              ? <><span className="ca-spinner" /> Analyzing with AI… ({csvElapsed}s)</>  
+              : <><Sparkles size={15} /> Analyze with AI</>}
           </button>
         </div>
       </div>

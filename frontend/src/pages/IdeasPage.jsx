@@ -155,7 +155,7 @@ export default function IdeasPage() {
     setCsvUploading(true);
     setCsvError('');
     try {
-      const result = await api.uploadCsvIdea(csvFile);
+      const result = await api.uploadCsvIdea(csvFile, 'ideas');
       setAiResult(result);
       setShowCsvModal(false);
       setShowResultModal(true);

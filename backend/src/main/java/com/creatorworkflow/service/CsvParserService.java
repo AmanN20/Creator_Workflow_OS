@@ -199,9 +199,15 @@ public class CsvParserService {
 
         sb.append("--- All Videos Data ---\n");
         sb.append("Format: Title | Views | CTR | Watch Time | Avg Duration | Likes\n\n");
-        
-        for (int i = 0; i < sorted.size(); i++) {
-            appendVideoLine(sb, sorted.get(i), i + 1, titleCol, viewsCol, ctrCol, watchCol, avgViewDur, likesCol, videoIdCol);
+
+        // Cap to top 10 videos to keep the prompt fast and within model limits
+        List<Map<String, String>> capped = sorted.size() > 10 ? sorted.subList(0, 10) : sorted;
+        if (sorted.size() > 10) {
+            sb.append("(Showing top 10 of ").append(sorted.size()).append(" videos by views)\n\n");
+        }
+
+        for (int i = 0; i < capped.size(); i++) {
+            appendVideoLine(sb, capped.get(i), i + 1, titleCol, viewsCol, ctrCol, watchCol, avgViewDur, likesCol, videoIdCol);
         }
 
         return sb.toString();

@@ -39,9 +39,11 @@ public class IdeaController {
 
     // NEW: CSV upload endpoint
     @PostMapping(value = "/upload-csv", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<IdeaDTO> uploadCsv(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<IdeaDTO> uploadCsv(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "type", defaultValue = "ideas") String type) {
         Long userId = SecurityUtils.getCurrentUserId();
-        IdeaDTO result = ideaService.processCSVUpload(userId, file);
+        IdeaDTO result = ideaService.processCSVUpload(userId, file, type);
         return ResponseEntity.ok(result);
     }
 

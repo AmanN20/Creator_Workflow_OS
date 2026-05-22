@@ -20,10 +20,14 @@ class ApiService {
     return headers;
   }
 
-  async request(method, endpoint, body = null, auth = true) {
+  async request(method, endpoint, body = null, auth = true, timeoutMs = null) {
+    const controller = timeoutMs ? new AbortController() : null;
+    const timerId = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+
     const config = {
       method,
       headers: this.getHeaders(auth),
+      ...(controller ? { signal: controller.signal } : {}),
     };
     if (body) {
       config.body = JSON.stringify(body);
@@ -47,11 +51,16 @@ class ApiService {
       if (response.status === 204) return null;
       return await response.json();
     } catch (error) {
+      if (error.name === 'AbortError') {
+        throw new Error(`Request timed out after ${Math.round(timeoutMs / 1000)}s. Please try again.`);
+      }
       // If the java backend isn't running, this gives a much clearer error to the user!
       if (error.message === 'Failed to fetch') {
         throw new Error('Cannot connect to the backend database. Is your Java Spring Boot app running on port 8080?');
       }
       throw error;
+    } finally {
+      if (timerId) clearTimeout(timerId);
     }
   }
 
@@ -93,8 +102,9 @@ class ApiService {
     return this.request('GET', '/ideas/analyses');
   }
 
-  // NEW: Upload CSV for AI idea generation
-  async uploadCsvIdea(file) {
+  // Upload CSV for AI idea generation — with 115s AbortController timeout
+  // type: "ideas" (default) or "analysis" — determines prompt and output format
+  async uploadCsvIdea(file, type = 'ideas', onProgress) {
     const formData = new FormData();
     formData.append('file', file);
 
@@ -103,14 +113,22 @@ class ApiService {
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
-    // Do NOT set Content-Type — browser will set multipart boundary automatically
+    // Do NOT set Content-Type — browser sets multipart boundary automatically
+
+    // AbortController gives a clean timeout instead of hanging forever
+    const controller = new AbortController();
+    const TIMEOUT_MS = 115_000; // 115 seconds (backend kills at 110s)
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
     try {
-      const response = await fetch(`${this.baseUrl}/ideas/upload-csv`, {
+      const response = await fetch(`${this.baseUrl}/ideas/upload-csv?type=${encodeURIComponent(type)}`, {
         method: 'POST',
         headers,
         body: formData,
+        signal: controller.signal,
       });
+
+      clearTimeout(timeoutId);
 
       if (response.status === 401) {
         localStorage.removeItem('token');
@@ -126,6 +144,10 @@ class ApiService {
 
       return await response.json();
     } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error('Analysis timed out after ~2 minutes. Your CSV may be too large — try uploading a smaller date range export from YouTube Studio.');
+      }
       if (error.message === 'Failed to fetch') {
         throw new Error('Cannot connect to backend. Is your Spring Boot app running on port 8080?');
       }
@@ -133,17 +155,17 @@ class ApiService {
     }
   }
 
-  // Scripts
+  // Scripts — AI calls use 65s timeout to match backend's 60s reactive timeout
   async generateScript(data) {
-    return this.request('POST', '/script/generate', data);
+    return this.request('POST', '/script/generate', data, true, 65000);
   }
 
   async improveScript(data) {
-    return this.request('POST', '/script/improve', data);
+    return this.request('POST', '/script/improve', data, true, 65000);
   }
 
   async generateHook(data) {
-    return this.request('POST', '/script/hook', data);
+    return this.request('POST', '/script/hook', data, true, 65000);
   }
 
   async getScriptsByIdea(ideaId) {

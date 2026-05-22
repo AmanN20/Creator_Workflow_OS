@@ -68,13 +68,13 @@ public class IdeaService {
      * 3. Send to Gemini for AI analysis
      * 4. Store everything in the database
      */
-    public IdeaDTO processCSVUpload(Long userId, MultipartFile file) {
+    public IdeaDTO processCSVUpload(Long userId, MultipartFile file, String type) {
         // 1. Parse CSV
         Map<String, Object> parsedData = csvParserService.parseCsv(file);
         String summary = (String) parsedData.get("summary");
 
-        // 2. Send to Gemini
-        String aiResponse = geminiService.analyzeWithGemini(summary);
+        // 2. Send to Gemini — "ideas" for next-video ideas, "analysis" for full per-video breakdown
+        String aiResponse = geminiService.analyzeWithGemini(summary, type);
 
         // 3. Save to DB so Content Analysis page can retrieve it
         Idea idea = new Idea();

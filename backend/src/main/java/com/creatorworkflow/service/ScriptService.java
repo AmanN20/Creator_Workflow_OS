@@ -3,6 +3,7 @@ package com.creatorworkflow.service;
 import com.creatorworkflow.dto.ScriptDTO;
 import com.creatorworkflow.dto.ScriptRequest;
 import com.creatorworkflow.entity.Script;
+import com.creatorworkflow.exception.BadRequestException;
 import com.creatorworkflow.exception.ResourceNotFoundException;
 import com.creatorworkflow.repository.ContentPostRepository;
 import com.creatorworkflow.repository.IdeaRepository;
@@ -11,7 +12,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -151,22 +154,23 @@ public class ScriptService {
     }
 
     private String callAI(String systemPrompt, String userPrompt) {
-        try {
-            Map<String, Object> requestBody = Map.of(
-                    "model", aiModel,
-                    "messages", List.of(
-                            Map.of("role", "system", "content", systemPrompt),
-                            Map.of("role", "user", "content", userPrompt)
-                    ),
-                    "temperature", 0.7,
-                    "max_tokens", 2000
-            );
+        Map<String, Object> requestBody = Map.of(
+                "model", aiModel,
+                "messages", List.of(
+                        Map.of("role", "system", "content", systemPrompt),
+                        Map.of("role", "user", "content", userPrompt)
+                ),
+                "temperature", 0.7,
+                "max_tokens", 2000
+        );
 
+        try {
             Map<?, ?> response = webClient.post()
                     .contentType(MediaType.APPLICATION_JSON)
                     .bodyValue(requestBody)
                     .retrieve()
                     .bodyToMono(Map.class)
+                    .timeout(Duration.ofSeconds(60))
                     .block();
 
             if (response != null && response.containsKey("choices")) {
@@ -177,11 +181,26 @@ public class ScriptService {
                     return (String) message.get("content");
                 }
             }
+            throw new BadRequestException("AI returned an empty response. Please try again.");
 
-            return generateFallbackScript(userPrompt);
-
+        } catch (BadRequestException e) {
+            throw e;
         } catch (Exception e) {
-            return generateFallbackScript(userPrompt);
+            // Unwrap TimeoutException from Reactor's wrapper at any depth
+            Throwable cause = e;
+            while (cause != null) {
+                if (cause instanceof java.util.concurrent.TimeoutException) {
+                    throw new BadRequestException("Script generation timed out after 60 seconds. Please try again.");
+                }
+                cause = cause.getCause();
+            }
+            if (e instanceof WebClientResponseException wce) {
+                int status = wce.getStatusCode().value();
+                if (status == 401) throw new BadRequestException("AI API key is invalid or missing.");
+                if (status == 429) throw new BadRequestException("AI rate limit exceeded. Please wait a moment and try again.");
+                throw new BadRequestException("AI API error: " + status + " " + wce.getStatusText());
+            }
+            throw new BadRequestException("Script generation failed: " + e.getMessage());
         }
     }
 
